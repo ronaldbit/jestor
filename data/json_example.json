@@ -1,0 +1,293 @@
+{
+    "db": {
+        "users": [
+            {
+                "user": "root",
+                "pass": ""
+            }
+        ],
+        "collation": "utf8mb4_general_ci",
+        "time_zone": "UTC-5",
+        "auto_increment": true
+    },
+    "data": {
+        "Usuarios": {
+            "columns": {
+                "idUsuario": {
+                    "type": "int",
+                    "nullable": false,
+                    "auto_increment": true
+                },
+                "nombre": {
+                    "type": "varchar",
+                    "nullable": false,
+                    "length": 100
+                },
+                "correo": {
+                    "type": "varchar",
+                    "nullable": false,
+                    "length": 100
+                },
+                "password": {
+                    "type": "varchar",
+                    "nullable": false,
+                    "length": 255
+                },
+                "rol": {
+                    "type": "enum",
+                    "nullable": true,
+                    "enum": [
+                        "admin",
+                        "cliente",
+                        "vendedor"
+                    ],
+                    "default": "cliente",
+                    "length": 10
+                }
+            },
+            "rows": [
+                {
+                    "idUsuario": 1,
+                    "nombre": "Ronald Editado",
+                    "correo": "ronald@mail.com",
+                    "password": "12345",
+                    "rol": "admin"
+                },
+                {
+                    "idUsuario": 2,
+                    "nombre": "Juan Editado",
+                    "correo": "carlos@mail.com",
+                    "password": "$2y$10$6guSHFgsdZqr\/ToOoxH2WOVgRjkTImut3v3oBzRC1A6Bfzvwsg.qO",
+                    "rol": "admin"
+                },
+                {
+                    "idUsuario": 3,
+                    "nombre": "Carlos",
+                    "correo": "carlos@mail.com",
+                    "password": "$2y$10$ivcloPLbshqvANXP16hToens4\/4JX\/sdvZd6MiEGE8LFMZzkCBs9q",
+                    "rol": "cliente"
+                },
+                {
+                    "idUsuario": 4,
+                    "nombre": "Carlos",
+                    "correo": "carlos@mail.com",
+                    "password": "$2y$10$l.SRLIWWZDtfx7or63RofefcWRiVaylZ8\/cklIB\/XqKAvS9XjxTTi",
+                    "rol": "cliente"
+                },
+                {
+                    "idUsuario": 5,
+                    "nombre": "Carlos",
+                    "correo": "carlos@mail.com",
+                    "password": "$2y$10$6iZqOdH8\/khJyGU.i58\/wufnpCTXv9e8JpXdvE9SKAsfKC8lh5s3a",
+                    "rol": "cliente"
+                },
+                {
+                    "idUsuario": 6,
+                    "nombre": "Mariana Jauana",
+                    "correo": "carlos@mail.com",
+                    "password": "$2y$10$\/zUB6F\/OjWDTIlFS6TbZqelVrrlAoBN6ofHgLh9ZUh\/xXZub6mShG",
+                    "rol": "vendedor"
+                }
+            ],
+            "foreign_keys": [],
+            "checks": [],
+            "keys": {
+                "primary": [
+                    "idUsuario"
+                ],
+                "unique": [
+                    [
+                        "correo"
+                    ]
+                ],
+                "index": [
+                    [
+                        "correo"
+                    ]
+                ]
+            }
+        },
+        "Productos": {
+            "columns": {
+                "idProducto": {
+                    "type": "int",
+                    "nullable": false,
+                    "auto_increment": true
+                },
+                "nombre": {
+                    "type": "varchar",
+                    "nullable": false,
+                    "length": 150
+                },
+                "precio": {
+                    "type": "decimal",
+                    "nullable": false,
+                    "length": 10
+                },
+                "stock": {
+                    "type": "int",
+                    "nullable": true,
+                    "default": "0",
+                    "length": 100
+                },
+                "estado": {
+                    "type": "enum",
+                    "nullable": true,
+                    "enum": [
+                        "activo",
+                        "inactivo",
+                        "descontinuado"
+                    ],
+                    "default": "activo",
+                    "length": 100
+                }
+            },
+            "rows": [
+                {
+                    "idProducto": 1,
+                    "nombre": "Laptop",
+                    "precio": "2500.00",
+                    "stock": "10",
+                    "estado": "activo"
+                }
+            ],
+            "foreign_keys": [],
+            "checks": [
+                "`precio` > 0",
+                "`stock` >= 0"
+            ],
+            "keys": {
+                "primary": [
+                    "idProducto"
+                ],
+                "unique": [],
+                "index": [
+                    [
+                        "nombre"
+                    ]
+                ]
+            }
+        },
+        "Pedidos": {
+            "columns": {
+                "idPedido": {
+                    "type": "int",
+                    "nullable": false,
+                    "auto_increment": true
+                },
+                "idUsuario": {
+                    "type": "int",
+                    "nullable": false
+                },
+                "fecha": {
+                    "type": "datetime",
+                    "nullable": false,
+                    "default": "CURRENT_TIMESTAMP"
+                },
+                "estado": {
+                    "type": "enum",
+                    "nullable": true,
+                    "enum": [
+                        "pendiente",
+                        "procesado",
+                        "cancelado"
+                    ],
+                    "default": "pendiente"
+                }
+            },
+            "rows": [
+                {
+                    "idPedido": 1,
+                    "idUsuario": "1",
+                    "fecha": "2025-04-01 10:00:00",
+                    "estado": "procesado"
+                }
+            ],
+            "foreign_keys": [
+                {
+                    "column": "idUsuario",
+                    "references": {
+                        "table": "Usuarios",
+                        "column": "idUsuario"
+                    },
+                    "on_delete": "CASCADE",
+                    "on_update": "CASCADE"
+                }
+            ],
+            "checks": [],
+            "keys": {
+                "primary": [
+                    "idPedido"
+                ],
+                "unique": [],
+                "index": []
+            }
+        },
+        "DetallePedido": {
+            "columns": {
+                "idDetalle": {
+                    "type": "int",
+                    "nullable": false,
+                    "auto_increment": true
+                },
+                "idPedido": {
+                    "type": "int",
+                    "nullable": false
+                },
+                "idProducto": {
+                    "type": "int",
+                    "nullable": false
+                },
+                "cantidad": {
+                    "type": "int",
+                    "nullable": false
+                },
+                "precio_unitario": {
+                    "type": "decimal",
+                    "nullable": false,
+                    "length": 10
+                }
+            },
+            "rows": [
+                {
+                    "idDetalle": 1,
+                    "idPedido": "1",
+                    "idProducto": "1",
+                    "cantidad": "1",
+                    "precio_unitario": "2500.00"
+                }
+            ],
+            "foreign_keys": [
+                {
+                    "column": "idPedido",
+                    "references": {
+                        "table": "Pedidos",
+                        "column": "idPedido"
+                    },
+                    "on_delete": "CASCADE",
+                    "on_update": "CASCADE"
+                },
+                {
+                    "column": "idProducto",
+                    "references": {
+                        "table": "Productos",
+                        "column": "idProducto"
+                    },
+                    "on_delete": "RESTRICT",
+                    "on_update": "CASCADE"
+                }
+            ],
+            "checks": [
+                "`cantidad` > 0",
+                "`precio_unitario` >= 0"
+            ],
+            "keys": {
+                "primary": [
+                    "idDetalle"
+                ],
+                "unique": [],
+                "index": []
+            }
+        }
+    }
+}
