@@ -1,34 +1,64 @@
 <?php
 
+/**
+ * Clase de excepción personalizada para operaciones de JESTOR.
+ */
 class JESTORException extends Exception {}
 
+/**
+ * JESTOR es un mini motor de base de datos que emula consultas SQL sobre archivos JSON.
+ * Es ideal para entornos sin bases de datos o para un desarrollo rápido sin dependencias.
+ */
 class JESTOR {
-    private $host, $user, $pass, $db;
+    /** @var string El host de la base de datos. Actualmente no se utiliza, pero se mantiene por compatibilidad de API. */
+    private $host;
+    /** @var string El nombre de usuario para la autenticación de la base de datos. */
+    private $user;
+    /** @var string La contraseña para la autenticación de la base de datos. */
+    private $pass;
+    /** @var string El nombre de la base de datos (archivo JSON). */
+    private $db;
+    /** @var array La representación en memoria de la base de datos JSON. */
     private $data = [];
+    /** @var string La ruta al archivo de la base de datos JSON. */
     private $file;
+    /** @var string|null Mensaje de error de conexión, si lo hay. */
     public $connect_error = null;
 
+    /** @var array Un array para mantener los parámetros vinculados para sentencias preparadas. */
     private $boundParams = [];
 
+    /** @var int|null El ID de la última fila insertada. */
     private $lastInsertId = null;
 
-    //manejo de errores:
-    // Constantes de atributos
+    // Constantes de manejo de errores
     const ATTR_ERRMODE    = 1;
     const ATTR_FETCH_MODE = 2;
 
-    // Constantes de valores
+    // Valores de modo de error
     const ERRMODE_SILENT    = 0;
     const ERRMODE_WARNING   = 1;
     const ERRMODE_EXCEPTION = 2;
 
+    // Valores de modo de obtención
     const FETCH_ASSOC = 1;
     const FETCH_NUM   = 2;
     const FETCH_BOTH  = 3;
 
+    /** @var array Un array para mantener los atributos de la conexión. */
     private $attributes = [];
+    /** @var string El último mensaje de error. */
     private $lastError = '';
 
+    /**
+     * Constructor de JESTOR.
+     *
+     * @param string $host El host de la base de datos.
+     * @param string $user El nombre de usuario para la autenticación.
+     * @param string $pass La contraseña para la autenticación.
+     * @param string $db El nombre de la base de datos (archivo JSON sin extensión).
+     * @param array  $options Un array de opciones de conexión.
+     */
     public function __construct($host, $user, $pass, $db, $options = []) {
         $this->host = $host;
         $this->user = $user;
@@ -75,7 +105,13 @@ class JESTOR {
         }
     }
 
-    //manejo de errore: 
+    /**
+     * Establece un atributo de conexión.
+     *
+     * @param int $attribute El atributo a establecer (p. ej., ATTR_ERRMODE).
+     * @param mixed $value El valor para el atributo.
+     * @throws InvalidArgumentException Si el atributo o el valor no son válidos.
+     */
     public function setAttribute($attribute, $value) {
         switch ($attribute) {
             case self::ATTR_ERRMODE:
@@ -97,6 +133,13 @@ class JESTOR {
         $this->attributes[$attribute] = $value;
     }
 
+    /**
+     * Obtiene un atributo de conexión.
+     *
+     * @param int $attribute El atributo a obtener.
+     * @return mixed El valor del atributo.
+     * @throws InvalidArgumentException Si el atributo no es válido.
+     */
     public function getAttribute($attribute) {
         if (!array_key_exists($attribute, $this->attributes)) {
             throw new InvalidArgumentException("Atributo no válido");
@@ -105,10 +148,22 @@ class JESTOR {
         return $this->attributes[$attribute];
     }
 
+    /**
+     * Obtiene el último mensaje de error.
+     *
+     * @return string El último mensaje de error.
+     */
     public function getLastError() {
         return $this->lastError;
     }
     
+    /**
+     * Dispara un error basado en el modo de error configurado.
+     *
+     * @param string $message El mensaje de error.
+     * @return bool|void Devuelve false en los modos SILENT y WARNING, lanza una excepción en el modo EXCEPTION.
+     * @throws JESTORException En modo EXCEPTION.
+     */
     public function triggerError($message) {
         $mode = $this->getAttribute(self::ATTR_ERRMODE);
 
@@ -126,6 +181,12 @@ class JESTOR {
         }
     }
 
+    /**
+     * Formatea una fila según el modo de obtención actual.
+     *
+     * @param array $row La fila a formatear.
+     * @return array La fila formateada.
+     */
     public function fetchMock(array $row) {
         $mode = $this->getAttribute(self::ATTR_FETCH_MODE);
 
@@ -145,13 +206,21 @@ class JESTOR {
         }
     }
 
- 
-
-    // Método público para acceder a los datos de la base de datos (JSON)
+    /**
+     * Método público para acceder a los datos de la base de datos (JSON).
+     *
+     * @return array Los datos de la base de datos.
+     */
     public function getData() {
         return $this->data;
     }
 
+    /**
+     * Ejecuta una consulta SQL.
+     *
+     * @param string $sql La consulta SQL a ejecutar.
+     * @return JESTORResult|bool El objeto de resultado para consultas SELECT, true para INSERT/UPDATE/DELETE exitosos, false en caso de fallo.
+     */
     public function query($sql) {
         if (stripos($sql, 'SELECT') === 0) {
             return $this->handleSelect($sql);
@@ -172,7 +241,12 @@ class JESTOR {
         return false;
     }
 
-    // Método para manejar SELECT
+    /**
+     * Maneja las consultas SELECT.
+     *
+     * @param string $sql La consulta SELECT.
+     * @return JESTORResult|bool Un objeto de resultado o false en caso de fallo.
+     */
     public function handleSelect($sql) {
         preg_match('/SELECT\s+(.*?)\s+FROM\s+([a-zA-Z_]+)/i', $sql, $matches);
         if (!$matches || !isset($matches[1]) || !isset($matches[2])) {
@@ -213,9 +287,14 @@ class JESTOR {
         return new JESTORResult($resultadosFiltrados);
     }
 
-    // Método público para manejar INSERT
+    /**
+     * Maneja las consultas INSERT.
+     *
+     * @param string $sql La consulta INSERT.
+     * @return bool True en caso de éxito, false en caso de fallo.
+     * @throws Exception Si la validación falla.
+     */
     public function handleInsert($sql) {
-        // Comprobar si la consulta tiene parámetros nombrados (por ejemplo, :nombre)
         preg_match('/INTO\s+(\w+)\s*\((.*?)\)\s*VALUES\s*\((.*?)\)/i', $sql, $matches);
         if (!$matches) return false;
 
@@ -223,10 +302,8 @@ class JESTOR {
         $columns = array_map('trim', explode(',', $matches[2]));
         $valuesPart = $matches[3];
 
-        // Verifica que los placeholders se asignen correctamente
         preg_match_all('/:\w+/', $valuesPart, $valueMatches);
         $placeholders = $valueMatches[0];
-        // Asigna los valores a los placeholders
         $values = [];
         foreach ($placeholders as $placeholder) {
             $realValue = $this->getRealValue($placeholder);
@@ -236,20 +313,16 @@ class JESTOR {
             $values[] = $realValue;
         }
 
-        // Comprobar si los valores son parámetros nombrados
         if (strpos($valuesPart, ':') !== false) {
-            // Extraer los parámetros nombrados de la cadena de valores
             preg_match_all('/:\w+/', $valuesPart, $valueMatches);
             $placeholders = $valueMatches[0];
 
-            // Aquí asignamos los valores reales a los placeholders
             $values = [];
             foreach ($placeholders as $placeholder) {
-                $realValue = $this->getRealValue($placeholder); // Definir esta función según la lógica de tu aplicación
+                $realValue = $this->getRealValue($placeholder);
                 $values[] = $realValue;
             }
         } else {
-            // Si no hay parámetros nombrados, entonces son valores directos
             $values = array_map(function($v) {
                 return trim(trim($v), "'\"");
             }, explode(',', $valuesPart));
@@ -259,7 +332,6 @@ class JESTOR {
 
         $colsDef = $this->data['data'][$table]['columns'] ?? [];
 
-        // Buscar si hay columna auto_increment y no viene en el INSERT
         foreach ($colsDef as $col => $def) {
             if (!in_array($col, $columns) && !empty($def['auto_increment'])) {
                 $lastId = 0;
@@ -274,19 +346,16 @@ class JESTOR {
             }
         }
 
-        // Validaciones de tipo, not null y longitud 
         foreach ($columns as $i => $col) {
             $val = $values[$i] ?? null; 
             $colDef = $colsDef[$col] ?? null;
 
             if (!$colDef) continue;
 
-            // Validar NOT NULL
             if (!empty($colDef['not_null']) && ($val === null || $val === '')) {
                 throw new Exception("[ERROR] El campo '$col' no puede ser NULL.");
             }
 
-            // Validar tipo de dato (solo 'int' y 'string' por ahora)
             if ($colDef['type'] === 'int' && !is_numeric($val)) {
                 throw new Exception("[ERROR] El valor de '$col' debe ser un número entero.");
             }
@@ -294,35 +363,51 @@ class JESTOR {
             if (empty($colDef['auto_increment']) && isset($val) && $val !== null && strlen($val) > $colDef['length']) {
                 throw new Exception("[ERROR] El valor de '$col' excede el tamaño máximo de {$colDef['length']} caracteres.");
             }
-            
         }
 
-        // Aquí ahora correctamente se combinan las columnas con los valores
         $newRow = array_combine($columns, $values);
-
-        // Agregamos la nueva fila a la tabla
         $this->data['data'][$table]['rows'][] = $newRow;
-
-        // Asignamos el ultimo valor agregado para obtener con lastInsertId
         $this->lastInsertId = $lastId + 1;
 
-        // Guardamos el JSON actualizado en el archivo
         file_put_contents($this->file, json_encode($this->data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return true;
     }
 
+    /**
+     * Obtiene el ID de la última fila insertada.
+     *
+     * @return int|null El último ID insertado.
+     */
     public function lastInsertId() {
         return $this->lastInsertId;
     }
 
+    /**
+     * Vincula un valor a un parámetro.
+     *
+     * @param string $key El marcador de posición del parámetro (p. ej., ':nombre').
+     * @param mixed $value El valor a vincular.
+     */
     public function bindValue($key, $value) {
         $this->boundParams[$key] = $value;
     }
 
+    /**
+     * Obtiene el valor real de un marcador de posición.
+     *
+     * @param string $placeholder El marcador de posición.
+     * @return mixed El valor vinculado o null si no se encuentra.
+     */
     private function getRealValue($placeholder) {
         return $this->boundParams[$placeholder] ?? null;
     }
 
+    /**
+     * Maneja las consultas UPDATE.
+     *
+     * @param string $sql La consulta UPDATE.
+     * @return bool True si se actualizaron filas, false en caso contrario.
+     */
     public function handleUpdate($sql) {
         preg_match('/UPDATE\s+(\w+)\s+SET\s+(.*?)\s+WHERE\s+(.*)/i', $sql, $matches);
         if (!$matches) return false;
@@ -333,15 +418,12 @@ class JESTOR {
 
         parse_str(str_replace(",", "&", str_replace("=", "=", $setClause)), $setValues);
 
-        // Normalizar 
         $set = [];
         foreach (explode(',', $setClause) as $pair) {
             [$k, $v] = explode('=', $pair);
-            //$set[trim($k)] = trim(trim($v), "' ");
             $set[trim($k)] = trim($v, " '\"");
         }
 
-        // Muy básica: solo admite condiciones como columna='valor'
         preg_match("/(\w+)\s*=\s*'?(.*?)'?$/", $whereClause, $cond);
         if (!$cond) return false;
         [$_, $colCond, $valCond] = $cond;
@@ -360,6 +442,12 @@ class JESTOR {
         return $updated > 0;
     }
 
+    /**
+     * Maneja las consultas DELETE.
+     *
+     * @param string $sql La consulta DELETE.
+     * @return bool True si se eliminaron filas, false en caso contrario.
+     */
     public function handleDelete($sql) {
         preg_match('/DELETE\s+FROM\s+(\w+)\s+WHERE\s+(.*)/i', $sql, $matches);
         if (!$matches) return false;
@@ -386,7 +474,12 @@ class JESTOR {
         return $deleted > 0;
     }
 
-
+    /**
+     * Prepara una sentencia SQL para su ejecución.
+     *
+     * @param string $sql La sentencia SQL a preparar.
+     * @return JESTORStatement Un objeto de sentencia.
+     */
     public function prepare($sql) {
         return new JESTORStatement($this, $sql);
     }
@@ -396,28 +489,48 @@ if (!defined('MYSQLI_ASSOC')) define('MYSQLI_ASSOC', 1);
 if (!defined('MYSQLI_NUM')) define('MYSQLI_NUM', 2);
 if (!defined('MYSQLI_BOTH')) define('MYSQLI_BOTH', 3);
 
+/**
+ * Representa el conjunto de resultados de una consulta JESTOR.
+ */
 class JESTORResult {
+    /** @var array Las filas del conjunto de resultados. */
     private $rows;
+    /** @var int La posición actual en el conjunto de resultados. */
     private $index = 0;
 
+    /**
+     * Constructor de JESTORResult.
+     *
+     * @param array $rows Las filas del conjunto de resultados.
+     */
     public function __construct($rows) {
         $this->rows = $rows;
     }
     
+    /**
+     * Obtiene la siguiente fila del conjunto de resultados.
+     *
+     * @return array|null La siguiente fila como un array asociativo, o null si no hay más filas.
+     */
     public function fetch() {
-        // Aseguramos que el índice no supere el número de filas
         if ($this->index < count($this->rows)) {
             return $this->rows[$this->index++];
         }
-        return null;  // Si no hay más filas, retornamos null
+        return null;
     }
     
-    // Método para restablecer el índice
+    /**
+     * Restablece el puntero del conjunto de resultados al principio.
+     */
     public function resetIndex() {
         $this->index = 0;
     }
     
-    // Devuelve la siguiente fila como un array asociativo (o NULL si ya no hay más filas)
+    /**
+     * Obtiene la siguiente fila como un array asociativo.
+     *
+     * @return array|null La siguiente fila, o null si no hay más filas.
+     */
     public function fetch_assoc() {
         if ($this->index < count($this->rows)) {
             return $this->rows[$this->index++];
@@ -425,17 +538,31 @@ class JESTORResult {
         return null;
     }
 
-    // Devuelve todas las filas sin modificarlas
+    /**
+     * Devuelve todas las filas del conjunto de resultados.
+     *
+     * @return array Todas las filas.
+     */
     public function all() {
         return $this->rows;
     }
 
-    // Obtiene todas las filas en el modo especificado (default es MYSQLI_ASSOC)
+    /**
+     * Obtiene todas las filas en el modo especificado.
+     *
+     * @param int $mode El modo de obtención (MYSQLI_ASSOC, MYSQLI_NUM, o MYSQLI_BOTH).
+     * @return array Todas las filas en el formato especificado.
+     */
     public function fetchAll($mode = MYSQLI_ASSOC) {
         return $this->fetch_all($mode);
     }
 
-    // Devuelve todas las filas según el modo: MYSQLI_ASSOC, MYSQLI_NUM, o MYSQLI_BOTH
+    /**
+     * Obtiene todas las filas según el modo especificado.
+     *
+     * @param int $mode El modo de obtención.
+     * @return array Todas las filas.
+     */
     public function fetch_all($mode = MYSQLI_ASSOC) {
         if ($mode === MYSQLI_ASSOC) {
             return $this->rows;
@@ -455,26 +582,47 @@ class JESTORResult {
         return $this->rows;
     }
 
-    // Devuelve el número de filas
+    /**
+     * Obtiene el número de filas en el conjunto de resultados.
+     *
+     * @return int El número de filas.
+     */
     public function num_rows() {
         return count($this->rows);
     }
 }
 
+/**
+ * Representa una sentencia preparada.
+ */
 class JESTORStatement {
+    /** @var JESTOR El objeto de conexión JESTOR. */
     private $jestor;
+    /** @var string La sentencia SQL. */
     private $sql;
+    /** @var array Los parámetros vinculados. */
     private $params = [];
 
+    /**
+     * Constructor de JESTORStatement.
+     *
+     * @param JESTOR $jestor El objeto de conexión.
+     * @param string $sql La sentencia SQL.
+     */
     public function __construct($jestor, $sql) {
         $this->jestor = $jestor;
         $this->sql = $sql;
     }
 
+    /**
+     * Ejecuta la sentencia preparada.
+     *
+     * @param array $params Los parámetros a vincular.
+     * @return JESTORResult|bool El resultado de la consulta.
+     */
     public function execute($params = []) {
         $sql = $this->sql;
         foreach ($params as $key => $value) {
-            // Escapar comillas simples en los valores
             $escaped = str_replace("'", "\\'", $value);
             $sql = str_replace($key, "'$escaped'", $sql);
         }
@@ -482,15 +630,23 @@ class JESTORStatement {
         return $this->jestor->query($sql);
     }
 
+    /**
+     * Vincula un valor a un parámetro.
+     *
+     * @param string $key El marcador de posición del parámetro.
+     * @param mixed $value El valor a vincular.
+     */
     public function bindValue($key, $value) {
         $this->params[$key] = $value;
     }
 
+    /**
+     * Obtiene un resultado de una sentencia preparada.
+     *
+     * @return null Actualmente no implementado.
+     */
     public function fetch() {
-        // No implementado, pero podría devolver resultados si fuera SELECT
         return null;
     }
 }
-
-
 ?>
